@@ -10,4 +10,5 @@ module.exports = {
   dotenv: require("dotenv"),
   bodyParser: require("body-parser"),
   sequelize: require("sequelize"),
+  bcrypt: require("bcrypt"),
 };

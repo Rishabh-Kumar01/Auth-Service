@@ -1,6 +1,8 @@
-require("../utils/imports.util").dotenv.config();
+const { dotenv, bcrypt } = require("../utils/imports.util");
+
+dotenv.config();
 
 module.exports = {
   PORT: process.env.PORT,
-  DATABASE_URL: process.env.DATABASE_URL,
+  SALT: bcrypt.genSaltSync(10),
 };

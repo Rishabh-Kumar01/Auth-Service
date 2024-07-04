@@ -4,16 +4,19 @@ const routes = require("./routes/index.route");
 
 const app = utils.imports.express();
 
-// Middlewares
-app.use(utils.imports.morgan("dev"));
-app.use(utils.imports.cors());
-app.use(utils.imports.helmet());
-app.use(utils.imports.compression());
-app.use(utils.imports.bodyParser.json());
-app.use(utils.imports.bodyParser.urlencoded({ extended: true }));
-
 // Server & Database Connection
 const setupAndStartServer = () => {
+  // Middlewares
+  app.use(utils.imports.morgan("dev"));
+  app.use(utils.imports.cors());
+  app.use(utils.imports.helmet());
+  app.use(utils.imports.compression());
+  app.use(utils.imports.bodyParser.json());
+  app.use(utils.imports.bodyParser.urlencoded({ extended: true }));
+
+  // Use the routes
+  app.use("/api", routes);
+
   app.listen(config.serverConfig.PORT, async () => {
     console.log(`SERVER IS RUNNING ON PORT ${config.serverConfig.PORT}`);
     // await config.connection();
