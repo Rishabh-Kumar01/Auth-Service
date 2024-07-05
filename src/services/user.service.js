@@ -1,5 +1,5 @@
 const { UserRepository } = require("../repository/index.repository");
-const { jwt } = require("../utils/imports.util");
+const { jwt, bcrypt } = require("../utils/imports.util");
 const { JWT_KEY } = require("../config/serverConfig");
 
 class UserService {
@@ -7,19 +7,9 @@ class UserService {
     this.userRepository = new UserRepository();
   }
 
-  async signup(data) {
+  async #createToken(user) {
     try {
-      const user = await this.userRepository.signup(data);
-      return user;
-    } catch (error) {
-      console.log("Something Went Wrong: User Service: Create User");
-      throw { error };
-    }
-  }
-
-  async createToken(user) {
-    try {
-      const token = jwt.sign(user, JWT_KEY, (expiresIn = "1h"));
+      const token = jwt.sign(user, JWT_KEY, { expiresIn: "1h" });
       return token;
     } catch (error) {
       console.log("Something Went Wrong: User Service: Create Token");
@@ -27,12 +17,63 @@ class UserService {
     }
   }
 
-  async verifyToken(token) {
+  async #verifyToken(token) {
     try {
       const response = jwt.verify(token, JWT_KEY);
       return response;
     } catch (error) {
-      console.log("Something Went Wrong: User Service: Verify Token", error);
+      console.log("Something Went Wrong: User Service: Verify Token");
+      throw { error };
+    }
+  }
+
+  async #checkPassword(password, hashedPassword) {
+    try {
+      const response = await bcrypt.compare(password, hashedPassword);
+      return response;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Check Password");
+      throw { error };
+    }
+  }
+
+  async signUp(data) {
+    try {
+      const user = await this.userRepository.signUp(data);
+      return user;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Create User");
+      throw { error };
+    }
+  }
+
+  async logIn(email, password) {
+    try {
+      const user = await this.userRepository.findByEmail(email);
+
+      if (!user) {
+        console.log("User Not Found");
+        throw { message: "User Not Found" };
+      }
+
+      const isPasswordValid = await this.#checkPassword(
+        password,
+        user.password
+      );
+
+      if (!isPasswordValid) {
+        console.log("Invalid Password");
+        throw { message: "Invalid Password" };
+      }
+
+      const token = await this.#createToken({
+        id: user.id,
+        email: user.email,
+      });
+
+      return token;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Log In User");
       throw { error };
     }
   }

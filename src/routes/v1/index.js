@@ -16,7 +16,14 @@ const { UserController } = require("../../controllers/index.controller");
  * Route - api/v1/signup
  * Summary : Create a new user
  */
-router.post("/signup", UserController.signup);
+router.post("/signup", UserController.signUp);
+
+/**
+ * Request Method - POST
+ * Route - api/v1/login
+ * Summary : Login a user
+ */
+router.post("/login", UserController.logIn);
 
 /**
  * Request Method - DELETE

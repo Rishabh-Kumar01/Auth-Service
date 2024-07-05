@@ -8,7 +8,7 @@ class UserRepository {
     UserRepository.instance = this;
   }
 
-  async signup(data) {
+  async signUp(data) {
     try {
       const user = await User.create({
         email: data.email,
@@ -56,6 +56,18 @@ class UserRepository {
       return user;
     } catch (error) {
       console.log("Something Went Wrong: User Repository: Find User By Id");
+      throw { error };
+    }
+  }
+
+  async findByEmail(email) {
+    try {
+      const user = await User.findOne({
+        where: { email },
+      });
+      return user;
+    } catch (error) {
+      console.log("Something Went Wrong: User Repository: Find User By Email");
       throw { error };
     }
   }

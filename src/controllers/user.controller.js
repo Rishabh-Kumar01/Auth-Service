@@ -6,7 +6,8 @@ const userService = new UserService();
 /**
  * User Controller
  * @description: Handles all user related operations
- * @method create: A method that creates a user
+ * @method signup: A method that creates a user
+ * @method login: A method that logs in a user
  * @method destroy: A method that deletes a user
  * @method update: A method that updates a user
  * @method findAll: A method that finds all users
@@ -14,9 +15,9 @@ const userService = new UserService();
  */
 
 module.exports = {
-  async signup(req, res) {
+  async signUp(req, res) {
     try {
-      const user = await userService.signup({
+      const user = await userService.signUp({
         email: req.body.email,
         password: req.body.password,
       });
@@ -37,6 +38,26 @@ module.exports = {
     }
   },
 
+  async logIn(req, res) {
+    try {
+      const token = await userService.logIn(req.body.email, req.body.password);
+      return res.status(responseCodes.SuccessCodes.OK).json({
+        message: "User Logged In Successfully",
+        success: true,
+        data: token,
+        error: {},
+      });
+    } catch (error) {
+      console.log("Something Went Wrong: User Controller: Log In User", error);
+      return res.status(500).json({
+        message: "Something Went Wrong",
+        success: false,
+        data: {},
+        error: error,
+      });
+    }
+  },
+
   async destroy(req, res) {
     try {
       await userService.destroy(req.params.userId);
@@ -48,29 +69,6 @@ module.exports = {
       });
     } catch (error) {
       console.log("Something Went Wrong: User Controller: Delete User", error);
-      return res.status(500).json({
-        message: "Something Went Wrong",
-        success: false,
-        data: {},
-        error: error,
-      });
-    }
-  },
-
-  async update(req, res) {
-    try {
-      const user = await userService.update(req.params.userId, {
-        email: req.body.email,
-        password: req.body.password,
-      });
-      return res.status(responseCodes.SuccessCodes.NO_CONTENT).json({
-        message: "User Updated Successfully",
-        success: true,
-        data: user,
-        error: {},
-      });
-    } catch (error) {
-      console.log("Something Went Wrong: User Controller: Update User", error);
       return res.status(500).json({
         message: "Something Went Wrong",
         success: false,
@@ -117,6 +115,29 @@ module.exports = {
         "Something Went Wrong: User Controller: Find User By Id",
         error
       );
+      return res.status(500).json({
+        message: "Something Went Wrong",
+        success: false,
+        data: {},
+        error: error,
+      });
+    }
+  },
+
+  async update(req, res) {
+    try {
+      const user = await userService.update(req.params.userId, {
+        email: req.body.email,
+        password: req.body.password,
+      });
+      return res.status(responseCodes.SuccessCodes.NO_CONTENT).json({
+        message: "User Updated Successfully",
+        success: true,
+        data: user,
+        error: {},
+      });
+    } catch (error) {
+      console.log("Something Went Wrong: User Controller: Update User", error);
       return res.status(500).json({
         message: "Something Went Wrong",
         success: false,
