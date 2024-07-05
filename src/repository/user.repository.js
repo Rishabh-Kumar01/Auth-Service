@@ -8,10 +8,16 @@ class UserRepository {
     UserRepository.instance = this;
   }
 
-  async create(data) {
+  async signup(data) {
     try {
-      const user = await User.create(data);
-      return user;
+      const user = await User.create({
+        email: data.email,
+        password: data.password,
+      });
+      return {
+        id: user.id,
+        email: user.email,
+      };
     } catch (error) {
       console.log("Something Went Wrong: User Repository: Create User");
       throw { error };
@@ -32,7 +38,9 @@ class UserRepository {
 
   async findAll() {
     try {
-      const users = await User.findAll();
+      const users = await User.findAll({
+        attributes: ["id", "email"],
+      });
       return users;
     } catch (error) {
       console.log("Something Went Wrong: User Repository: Find All Users");
@@ -42,7 +50,9 @@ class UserRepository {
 
   async findById(userId) {
     try {
-      const user = await User.findByPk(userId);
+      const user = await User.findByPk(userId, {
+        attributes: ["id", "email"],
+      });
       return user;
     } catch (error) {
       console.log("Something Went Wrong: User Repository: Find User By Id");

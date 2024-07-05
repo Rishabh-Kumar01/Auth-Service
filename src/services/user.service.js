@@ -5,9 +5,9 @@ class UserService {
     this.userRepository = new UserRepository();
   }
 
-  async create(data) {
+  async signup(data) {
     try {
-      const user = await this.userRepository.create(data);
+      const user = await this.userRepository.signup(data);
       return user;
     } catch (error) {
       console.log("Something Went Wrong: User Service: Create User");

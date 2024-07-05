@@ -14,9 +14,9 @@ const userService = new UserService();
  */
 
 module.exports = {
-  async create(req, res) {
+  async signup(req, res) {
     try {
-      const user = await userService.create({
+      const user = await userService.signup({
         email: req.body.email,
         password: req.body.password,
       });
@@ -27,7 +27,7 @@ module.exports = {
         error: {},
       });
     } catch (error) {
-      console.log("Something Went Wrong: User Controller: Create User");
+      console.log("Something Went Wrong: User Controller: SignUp User", error);
       return res.status(500).json({
         message: "Something Went Wrong",
         success: false,
@@ -47,7 +47,7 @@ module.exports = {
         error: {},
       });
     } catch (error) {
-      console.log("Something Went Wrong: User Controller: Delete User");
+      console.log("Something Went Wrong: User Controller: Delete User", error);
       return res.status(500).json({
         message: "Something Went Wrong",
         success: false,
@@ -70,7 +70,7 @@ module.exports = {
         error: {},
       });
     } catch (error) {
-      console.log("Something Went Wrong: User Controller: Update User");
+      console.log("Something Went Wrong: User Controller: Update User", error);
       return res.status(500).json({
         message: "Something Went Wrong",
         success: false,
@@ -90,7 +90,10 @@ module.exports = {
         error: {},
       });
     } catch (error) {
-      console.log("Something Went Wrong: User Controller: Find All Users");
+      console.log(
+        "Something Went Wrong: User Controller: Find All Users",
+        error
+      );
       return res.status(500).json({
         message: "Something Went Wrong",
         success: false,
@@ -110,7 +113,10 @@ module.exports = {
         error: {},
       });
     } catch (error) {
-      console.log("Something Went Wrong: User Controller: Find User By Id");
+      console.log(
+        "Something Went Wrong: User Controller: Find User By Id",
+        error
+      );
       return res.status(500).json({
         message: "Something Went Wrong",
         success: false,
