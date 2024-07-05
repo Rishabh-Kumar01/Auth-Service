@@ -17,22 +17,22 @@ class UserService {
     }
   }
 
-  async #verifyToken(token) {
-    try {
-      const response = jwt.verify(token, JWT_KEY);
-      return response;
-    } catch (error) {
-      console.log("Something Went Wrong: User Service: Verify Token");
-      throw { error };
-    }
-  }
-
   async #checkPassword(password, hashedPassword) {
     try {
       const response = await bcrypt.compare(password, hashedPassword);
       return response;
     } catch (error) {
       console.log("Something Went Wrong: User Service: Check Password");
+      throw { error };
+    }
+  }
+
+  async #verifyToken(token) {
+    try {
+      const response = jwt.verify(token, JWT_KEY);
+      return response;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Verify Token");
       throw { error };
     }
   }
@@ -74,6 +74,27 @@ class UserService {
       return token;
     } catch (error) {
       console.log("Something Went Wrong: User Service: Log In User");
+      throw { error };
+    }
+  }
+
+  async isAuthenticated(token) {
+    try {
+      const response = await this.#verifyToken(token);
+      if (!response) {
+        console.log("Invalid Token");
+        throw { message: "Invalid Token" };
+      }
+
+      const user = await this.userRepository.findById(response.id);
+
+      if (!user) {
+        console.log("User Not Found");
+        throw { message: "User Not Found" };
+      }
+      return user.id;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Is Authenticated");
       throw { error };
     }
   }

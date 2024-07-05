@@ -60,7 +60,7 @@ class UserRepository {
     }
   }
 
-  async findByEmail(email) {
+  async  findByEmail(email) {
     try {
       const user = await User.findOne({
         where: { email },

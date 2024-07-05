@@ -35,6 +35,13 @@ router.post(
 );
 
 /**
+ * Request Method - GET
+ * Route - api/v1/isAuthenticated
+ * Summary : Check if a user is authenticated
+ */
+router.get("/isAuthenticated", UserController.isAuthenticated);
+
+/**
  * Request Method - DELETE
  * Route - api/v1/:userId
  * Summary : Delete a user

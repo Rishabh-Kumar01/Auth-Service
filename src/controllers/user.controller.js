@@ -58,6 +58,30 @@ module.exports = {
     }
   },
 
+  async isAuthenticated(req, res) {
+    try {
+      const token = req.headers["x-access-token"];
+      const response = await userService.isAuthenticated(token);
+      return res.status(responseCodes.SuccessCodes.OK).json({
+        message: "User Authenticated Successfully",
+        success: true,
+        data: response,
+        error: {},
+      });
+    } catch (error) {
+      console.log(
+        "Something Went Wrong: User Controller: Is Authenticated",
+        error
+      );
+      return res.status(500).json({
+        message: "Something Went Wrong",
+        success: false,
+        data: {},
+        error: error,
+      });
+    }
+  },
+
   async destroy(req, res) {
     try {
       await userService.destroy(req.params.userId);
