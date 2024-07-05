@@ -1,5 +1,6 @@
 const router = require("../../utils/imports.util").express.Router();
 const { UserController } = require("../../controllers/index.controller");
+const { AuthRequestValidator } = require("../../middlewares/index.middleware");
 
 /**
  * User Routes
@@ -16,14 +17,22 @@ const { UserController } = require("../../controllers/index.controller");
  * Route - api/v1/signup
  * Summary : Create a new user
  */
-router.post("/signup", UserController.signUp);
+router.post(
+  "/signup",
+  AuthRequestValidator.validateUserAuth,
+  UserController.signUp
+);
 
 /**
  * Request Method - POST
  * Route - api/v1/login
  * Summary : Login a user
  */
-router.post("/login", UserController.logIn);
+router.post(
+  "/login",
+  AuthRequestValidator.validateUserAuth,
+  UserController.logIn
+);
 
 /**
  * Request Method - DELETE
