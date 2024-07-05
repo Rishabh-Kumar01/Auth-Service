@@ -11,4 +11,5 @@ module.exports = {
   bodyParser: require("body-parser"),
   sequelize: require("sequelize"),
   bcrypt: require("bcrypt"),
+  jwt: require("jsonwebtoken"),
 };

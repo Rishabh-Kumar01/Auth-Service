@@ -1,4 +1,6 @@
 const { UserRepository } = require("../repository/index.repository");
+const { jwt } = require("../utils/imports.util");
+const { JWT_KEY } = require("../config/serverConfig");
 
 class UserService {
   constructor() {
@@ -11,6 +13,26 @@ class UserService {
       return user;
     } catch (error) {
       console.log("Something Went Wrong: User Service: Create User");
+      throw { error };
+    }
+  }
+
+  async createToken(user) {
+    try {
+      const token = jwt.sign(user, JWT_KEY, (expiresIn = "1h"));
+      return token;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Create Token");
+      throw { error };
+    }
+  }
+
+  async verifyToken(token) {
+    try {
+      const response = jwt.verify(token, JWT_KEY);
+      return response;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Verify Token", error);
       throw { error };
     }
   }
