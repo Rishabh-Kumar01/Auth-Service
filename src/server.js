@@ -1,6 +1,7 @@
 const utils = require("./utils/index.util");
 const config = require("./config/index.config");
 const routes = require("./routes/index.route");
+const db = require("./models/index");
 
 const app = utils.imports.express();
 
@@ -19,6 +20,10 @@ const setupAndStartServer = () => {
 
   app.listen(config.serverConfig.PORT, async () => {
     console.log(`SERVER IS RUNNING ON PORT ${config.serverConfig.PORT}`);
+
+    if (config.serverConfig.DB_SYNC) {
+      await db.sequelize.sync({ alter: true });
+    }
     // await config.connection();
   });
 };
