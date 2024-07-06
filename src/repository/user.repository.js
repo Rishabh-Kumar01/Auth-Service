@@ -1,4 +1,5 @@
-const { User } = require("../models/index");
+const { User, Role } = require("../models/index");
+const { ValidationError } = require("../utils/index.util");
 
 class UserRepository {
   constructor() {
@@ -14,13 +15,33 @@ class UserRepository {
         email: data.email,
         password: data.password,
       });
+
+      if (!user) {
+        console.log("User Not Created");
+        throw { message: "User Not Created" };
+      }
+      console.log(data.roleId, "data.roleId");
+      const role = await Role.findByPk(data.roleId);
+
+      console.log(role);
+
+      if (!role) {
+        console.log("Role Not Found");
+        throw { message: "Role Not Found" };
+      }
+
+      await user.addRole(role);
+
       return {
         id: user.id,
         email: user.email,
       };
     } catch (error) {
+      if (error.name === "SequelizeValidationError") {
+        throw new ValidationError(error);
+      }
       console.log("Something Went Wrong: User Repository: Create User");
-      throw { error };
+      throw error;
     }
   }
 
@@ -101,6 +122,28 @@ class UserRepository {
       return user;
     } catch (error) {
       console.log("Something Went Wrong: User Repository: Update User");
+      throw { error };
+    }
+  }
+
+  async isAdmin(userId) {
+    try {
+      const user = await User.findByPk(userId);
+
+      if (!user) {
+        console.log("User Not Found");
+        throw { message: "User Not Found" };
+      }
+      console.log(user, "user");
+      const adminRole = await Role.findOne({
+        where: {
+          name: "ADMIN",
+        },
+      });
+      console.log(adminRole, "adminRole");
+      return user.hasRole(adminRole);
+    } catch (error) {
+      console.log("Something Went Wrong: User Repository: Is Admin");
       throw { error };
     }
   }

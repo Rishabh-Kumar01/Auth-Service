@@ -76,4 +76,15 @@ router.get("/:userId", UserController.findById);
  */
 router.put("/:userId", UserController.update);
 
+/**
+ * Request Method - GET
+ * Route - api/v1/isAdmin
+ * Summary : Check if a user is an admin
+ */
+router.get(
+  "/verify/isAdmin",
+  AuthRequestValidator.validateIsAdmin,
+  UserController.isAdmin
+);
+
 module.exports = router;

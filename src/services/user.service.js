@@ -73,8 +73,11 @@ class UserService {
 
       return user;
     } catch (error) {
+      if (error.name === "SequelizeValidationError") {
+        throw error;
+      }
       console.log("Something Went Wrong: User Service: Create User");
-      throw { error };
+      throw error;
     }
   }
 
@@ -191,6 +194,16 @@ class UserService {
       return user;
     } catch (error) {
       console.log("Something Went Wrong: User Service: Update User");
+      throw { error };
+    }
+  }
+
+  async isAdmin(userId) {
+    try {
+      const isAdmin = await this.userRepository.isAdmin(userId);
+      return isAdmin;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Is Admin");
       throw { error };
     }
   }

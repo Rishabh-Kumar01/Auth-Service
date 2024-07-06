@@ -14,4 +14,5 @@ module.exports = {
   jwt: require("jsonwebtoken"),
   nodemailer: require("nodemailer"),
   googleapis: require("googleapis"),
+  responseCodes: require("http-status-codes"),
 };
