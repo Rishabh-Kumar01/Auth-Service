@@ -22,13 +22,33 @@ module.exports = {
         password: req.body.password,
       });
       return res.status(responseCodes.SuccessCodes.CREATED).json({
-        message: "User Created Successfully",
+        message: "Verify Email To Complete Registration",
         success: true,
         data: user,
         error: {},
       });
     } catch (error) {
       console.log("Something Went Wrong: User Controller: SignUp User", error);
+      return res.status(500).json({
+        message: "Something Went Wrong",
+        success: false,
+        data: {},
+        error: error,
+      });
+    }
+  },
+
+  async verifyEmail(req, res) {
+    try {
+      const user = await userService.verifyEmail(req.query.token);
+      return res.status(responseCodes.SuccessCodes.OK).json({
+        message: "Email Verified Successfully",
+        success: true,
+        data: user,
+        error: {},
+      });
+    } catch (error) {
+      console.log("Something Went Wrong: User Controller: Verify Email", error);
       return res.status(500).json({
         message: "Something Went Wrong",
         success: false,

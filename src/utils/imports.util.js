@@ -12,4 +12,6 @@ module.exports = {
   sequelize: require("sequelize"),
   bcrypt: require("bcrypt"),
   jwt: require("jsonwebtoken"),
+  nodemailer: require("nodemailer"),
+  googleapis: require("googleapis"),
 };

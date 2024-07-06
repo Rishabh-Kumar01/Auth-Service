@@ -24,6 +24,25 @@ class UserRepository {
     }
   }
 
+  async updateStatus(userId) {
+    try {
+      const user = await User.findByPk(userId);
+      user.set({
+        verified: true,
+      });
+      await user.save();
+
+      return {
+        id: user.id,
+        email: user.email,
+        verified: user.verified,
+      };
+    } catch (error) {
+      console.log("Something Went Wrong: User Repository: Update User Status");
+      throw { error };
+    }
+  }
+
   async destroy(userId) {
     try {
       await User.destroy({
@@ -60,7 +79,7 @@ class UserRepository {
     }
   }
 
-  async  findByEmail(email) {
+  async findByEmail(email) {
     try {
       const user = await User.findOne({
         where: { email },

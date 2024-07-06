@@ -24,6 +24,13 @@ router.post(
 );
 
 /**
+ * Request Method - GET
+ * Route - api/v1/verify-email
+ * Summary : Verify a user's email
+ */
+router.get("/verify-email", UserController.verifyEmail);
+
+/**
  * Request Method - POST
  * Route - api/v1/login
  * Summary : Login a user

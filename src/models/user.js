@@ -30,6 +30,13 @@ module.exports = (sequelize, DataTypes) => {
           len: [6, 255],
         },
       },
+      verified: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        validate: {
+          isIn: [[false, true]],
+        },
+      },
     },
     {
       sequelize,

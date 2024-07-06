@@ -24,6 +24,13 @@ module.exports = {
           len: [6, 255],
         },
       },
+      verified: {
+        type: Sequelize.BOOLEAN,
+        defaultValue: false,
+        validate: {
+          isIn: [[false, true]],
+        },
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,
