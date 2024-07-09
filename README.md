@@ -28,11 +28,31 @@
 
 ## DB Design
 
-- Airplane Table
-- Flight Table
-- Airport Table
-- City Table
+- User Table
+- Role Table
 
-- A flight belongs to an airplane but one airplane can used in multiple flights.
-- A city has many airports but one airport belongs to a city.
-- One airport can have many flights, but a flight belongs to one airport.
+- A User can have multiple roles and a role can be assigned to multiple users.
+
+## Tables
+
+### Users -> id, email, password, createdAt, updatedAt
+
+```
+npx sequelize model:generate --name User --attributes name:String,password:String
+```
+
+### Roles -> id, name, createdAt, updatedAt
+
+```
+npx sequelize model:generate --Role City --attributes name:String
+```
+
+- To map user roles, we need to create a new User_Roles table. To achieve this,
+  we synchronize the `Users` and `Roles` tables, as they have a many-to-many
+  relationship using Sequelize.
+
+### User_Roles -> RoleId, UserId , createdAt, updatedAt
+
+```
+await db.sequelize.sync({ alter: true }); // Inside the server.js file
+```
