@@ -1,11 +1,13 @@
+const { StatusCodes } = require("../utils/imports.util").responseCodes;
+
 const validateUserAuth = (req, res, next) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({
-      message: "Something Went Wrong",
+  const { email, password, roleId } = req.body;
+  if ((!email || !password, !roleId)) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: "Please provide required fields",
       success: false,
       data: {},
-      error: "Email and Password are required",
+      error: "Email, Password and roleId are required",
     });
   }
   next();
@@ -14,8 +16,8 @@ const validateUserAuth = (req, res, next) => {
 const validateIsAdmin = (req, res, next) => {
   console.log(req.body.userId, "validateIsAdmin");
   if (!req.body.userId) {
-    return res.status(400).json({
-      message: "Something Went Wrong",
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: "Please provide required fields",
       success: false,
       data: {},
       error: "User ID is required",

@@ -35,10 +35,7 @@ module.exports = {
         message: error.message,
         success: false,
         data: {},
-        error: {
-          name: error.name,
-          explanation: error.explanation,
-        },
+        error: error.explanation,
       });
     }
   },
@@ -54,11 +51,11 @@ module.exports = {
       });
     } catch (error) {
       console.log("Something Went Wrong: User Controller: Verify Email", error);
-      return res.status(500).json({
-        message: "Something Went Wrong",
+      return res.status(error.statusCode).json({
+        message: error.message,
         success: false,
         data: {},
-        error: error,
+        error: error.explanation,
       });
     }
   },
@@ -74,11 +71,11 @@ module.exports = {
       });
     } catch (error) {
       console.log("Something Went Wrong: User Controller: Log In User", error);
-      return res.status(500).json({
-        message: "Something Went Wrong",
+      return res.status(error.statusCode).json({
+        message: error.message,
         success: false,
         data: {},
-        error: error,
+        error: error.explanation,
       });
     }
   },
@@ -98,11 +95,11 @@ module.exports = {
         "Something Went Wrong: User Controller: Is Authenticated",
         error
       );
-      return res.status(500).json({
-        message: "Something Went Wrong",
+      return res.status(error.statusCode).json({
+        message: error.message,
         success: false,
         data: {},
-        error: error,
+        error: error.explanation,
       });
     }
   },
@@ -118,11 +115,11 @@ module.exports = {
       });
     } catch (error) {
       console.log("Something Went Wrong: User Controller: Delete User", error);
-      return res.status(500).json({
-        message: "Something Went Wrong",
+      return res.status(error.statusCode).json({
+        message: error.message,
         success: false,
         data: {},
-        error: error,
+        error: error.explanation,
       });
     }
   },
@@ -141,11 +138,11 @@ module.exports = {
         "Something Went Wrong: User Controller: Find All Users",
         error
       );
-      return res.status(500).json({
-        message: "Something Went Wrong",
+      return res.status(error.statusCode).json({
+        message: error.message,
         success: false,
         data: {},
-        error: error,
+        error: error.explanation,
       });
     }
   },
@@ -164,11 +161,11 @@ module.exports = {
         "Something Went Wrong: User Controller: Find User By Id",
         error
       );
-      return res.status(500).json({
-        message: "Something Went Wrong",
+      return res.status(error.statusCode).json({
+        message: error.message,
         success: false,
         data: {},
-        error: error,
+        error: error.explanation,
       });
     }
   },
@@ -187,11 +184,11 @@ module.exports = {
       });
     } catch (error) {
       console.log("Something Went Wrong: User Controller: Update User", error);
-      return res.status(500).json({
-        message: "Something Went Wrong",
+      return res.status(error.statusCode).json({
+        message: error.message,
         success: false,
         data: {},
-        error: error,
+        error: error.explanation,
       });
     }
   },
@@ -207,11 +204,11 @@ module.exports = {
       });
     } catch (error) {
       console.log("Something Went Wrong: User Controller: Is Admin", error);
-      return res.status(500).json({
-        message: "Something Went Wrong",
+      return res.status(error.statusCode).json({
+        message: error.message,
         success: false,
         data: {},
-        error: error,
+        error: error.explanation,
       });
     }
   },

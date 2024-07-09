@@ -73,10 +73,14 @@ class UserService {
 
       return user;
     } catch (error) {
-      if (error.name === "SequelizeValidationError") {
+      console.log("Something Went Wrong: User Service: Create User", error);
+      if (
+        error.name === "SequelizeValidationError" ||
+        error.name === "SequelizeUniqueConstraintError"
+      ) {
         throw error;
       }
-      console.log("Something Went Wrong: User Service: Create User");
+
       throw error;
     }
   }
@@ -183,8 +187,11 @@ class UserService {
       const user = await this.userRepository.findById(userId);
       return user;
     } catch (error) {
+      if (error.name === "UserNotFound") {
+        throw error;
+      }
       console.log("Something Went Wrong: User Service: Find User By Id");
-      throw { error };
+      throw error;
     }
   }
 
@@ -193,8 +200,11 @@ class UserService {
       const user = await this.userRepository.update(userId, data);
       return user;
     } catch (error) {
+      if (error.name === "UserNotFound") {
+        throw error;
+      }
       console.log("Something Went Wrong: User Service: Update User");
-      throw { error };
+      throw error;
     }
   }
 

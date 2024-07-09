@@ -1,5 +1,6 @@
 const { User, Role } = require("../models/index");
-const { ValidationError } = require("../utils/index.util");
+const { ValidationError, ClientError } = require("../utils/index.util");
+const { StatusCodes } = require("../utils/imports.util").responseCodes;
 
 class UserRepository {
   constructor() {
@@ -20,14 +21,15 @@ class UserRepository {
         console.log("User Not Created");
         throw { message: "User Not Created" };
       }
-      console.log(data.roleId, "data.roleId");
-      const role = await Role.findByPk(data.roleId);
 
-      console.log(role);
+      const role = await Role.findByPk(data.roleId);
 
       if (!role) {
         console.log("Role Not Found");
-        throw { message: "Role Not Found" };
+        throw new ValidationError({
+          name: "RoleNotFound",
+          message: "Role Not Found",
+        });
       }
 
       await user.addRole(role);
@@ -37,7 +39,10 @@ class UserRepository {
         email: user.email,
       };
     } catch (error) {
-      if (error.name === "SequelizeValidationError") {
+      if (
+        error.name === "SequelizeValidationError" ||
+        error.name === "SequelizeUniqueConstraintError"
+      ) {
         throw new ValidationError(error);
       }
       console.log("Something Went Wrong: User Repository: Create User");
@@ -93,10 +98,19 @@ class UserRepository {
       const user = await User.findByPk(userId, {
         attributes: ["id", "email"],
       });
+      if (!user) {
+        console.log("User Not Found");
+        throw new ClientError(
+          "UserNotFound",
+          "User Not Found",
+          "User with the given ID is not found",
+          StatusCodes.NOT_FOUND
+        );
+      }
       return user;
     } catch (error) {
       console.log("Something Went Wrong: User Repository: Find User By Id");
-      throw { error };
+      throw error;
     }
   }
 
@@ -105,10 +119,19 @@ class UserRepository {
       const user = await User.findOne({
         where: { email },
       });
+      if (!user) {
+        console.log("User Not Found");
+        throw new ClientError(
+          "UserNotFound",
+          "User Not Found",
+          "User with the given Email is not found",
+          StatusCodes.NOT_FOUND
+        );
+      }
       return user;
     } catch (error) {
       console.log("Something Went Wrong: User Repository: Find User By Email");
-      throw { error };
+      throw error;
     }
   }
 
