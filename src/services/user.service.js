@@ -155,7 +155,7 @@ class UserService {
         console.log("User Not Found");
         throw { message: "User Not Found" };
       }
-      return user.id;
+      return user;
     } catch (error) {
       console.log("Something Went Wrong: User Service: Is Authenticated");
       throw { error };

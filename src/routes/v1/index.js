@@ -37,7 +37,7 @@ router.get("/verify-email", UserController.verifyEmail);
  */
 router.post(
   "/login",
-  AuthRequestValidator.validateUserAuth,
+  AuthRequestValidator.validateUserLogin,
   UserController.logIn
 );
 
@@ -53,28 +53,28 @@ router.get("/isAuthenticated", UserController.isAuthenticated);
  * Route - api/v1/:userId
  * Summary : Delete a user
  */
-router.delete("/:userId", UserController.destroy);
+router.delete("/users/:userId", UserController.destroy);
 
 /**
  * Request Method - GET
  * Route - api/v1
  * Summary : Get all users
  */
-router.get("/", UserController.findAll);
+router.get("/users", UserController.findAll);
 
 /**
  * Request Method - GET
  * Route - api/v1/:userId
  * Summary : Get a user by id
  */
-router.get("/:userId", UserController.findById);
+router.get("/users/:userId", UserController.findById);
 
 /**
  * Request Method - PUT
  * Route - api/v1/:userId
  * Summary : Update a user
  */
-router.put("/:userId", UserController.update);
+router.put("/users/:userId", UserController.update);
 
 /**
  * Request Method - GET

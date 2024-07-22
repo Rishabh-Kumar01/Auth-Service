@@ -13,6 +13,19 @@ const validateUserAuth = (req, res, next) => {
   next();
 };
 
+const validateUserLogin = (req, res, next) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: "Please provide required fields",
+      success: false,
+      data: {},
+      error: "Email and Password are required",
+    });
+  }
+  next();
+};
+
 const validateIsAdmin = (req, res, next) => {
   console.log(req.body.userId, "validateIsAdmin");
   if (!req.body.userId) {
@@ -28,5 +41,6 @@ const validateIsAdmin = (req, res, next) => {
 
 module.exports = {
   validateUserAuth,
+  validateUserLogin,
   validateIsAdmin,
 };

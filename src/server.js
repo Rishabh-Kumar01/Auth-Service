@@ -21,7 +21,7 @@ const setupAndStartServer = () => {
   app.listen(config.serverConfig.PORT, async () => {
     console.log(`SERVER IS RUNNING ON PORT ${config.serverConfig.PORT}`);
 
-    if (config.serverConfig.DB_SYNC) {
+    if (config.serverConfig.DB_SYNC === "true") {
       await db.sequelize.sync({ alter: true });
     }
     // await config.connection();
