@@ -1,6 +1,7 @@
 const { UserRepository } = require("../repository/index.repository");
 const { jwt, bcrypt, googleapis } = require("../utils/imports.util");
 const { serverConfig, nodemailerConfig } = require("../config/index.config");
+const { messageQueue } = require("../utils/index.util");
 
 class UserService {
   constructor() {
@@ -9,7 +10,7 @@ class UserService {
 
   async #createToken(user) {
     try {
-      const token = jwt.sign(user, serverConfig.JWT_KEY, { expiresIn: "1h" });
+      const token = jwt.sign(user, serverConfig.JWT_KEY, { expiresIn: "24h" });
       return token;
     } catch (error) {
       console.log("Something Went Wrong: User Service: Create Token");
@@ -67,9 +68,21 @@ class UserService {
         email: user.email,
       });
 
-      const message = `Click on the link to verify your email: http://localhost:8000/api/v1/verify-email?token=${emailToken}`;
+      const verificationLink = `http://localhost:8001/api/v1/verify-email?token=${emailToken}`;
 
-      nodemailerConfig.sendEmail(user.email, "Email Verification", message);
+      // nodemailerConfig.sendEmail(user.email, "Email Verification", message);
+      const payload = {
+        data: {
+          email: user.email,
+          verificationLink,
+          userId: user.id,
+        },
+        service: "CREATE_USER",
+      };
+      messageQueue.publishMessage(
+        serverConfig.REMINDER_BINDING_KEY,
+        JSON.stringify(payload)
+      );
 
       return user;
     } catch (error) {
@@ -99,6 +112,12 @@ class UserService {
       if (!user) {
         console.log("User Not Found");
         throw { message: "User Not Found" };
+      }
+
+      if (user.verified === true) {
+        return {
+          message: "Email Already Verified",
+        };
       }
 
       const updatedUser = await this.userRepository.updateStatus(user.id);

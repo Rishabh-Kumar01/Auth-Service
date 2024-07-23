@@ -15,4 +15,7 @@ module.exports = {
   REDIRECT_URI: process.env.REDIRECT_URI,
   REFRESH_TOKEN: process.env.REFRESH_TOKEN,
   DB_SYNC: process.env.DB_SYNC,
+  MESSAGE_BROKER_URL: process.env.MESSAGE_BROKER_URL,
+  REMINDER_BINDING_KEY: process.env.REMINDER_BINDING_KEY,
+  EXCHANGE_NAME: process.env.EXCHANGE_NAME,
 };

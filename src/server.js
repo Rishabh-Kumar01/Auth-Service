@@ -6,7 +6,7 @@ const db = require("./models/index");
 const app = utils.imports.express();
 
 // Server & Database Connection
-const setupAndStartServer = () => {
+const setupAndStartServer = async () => {
   // Middlewares
   app.use(utils.imports.morgan("dev"));
   app.use(utils.imports.cors());
@@ -14,6 +14,9 @@ const setupAndStartServer = () => {
   app.use(utils.imports.compression());
   app.use(utils.imports.bodyParser.json());
   app.use(utils.imports.bodyParser.urlencoded({ extended: true }));
+
+  // Message Queue Connection
+  await utils.messageQueue.getChannel();
 
   // Use the routes
   app.use("/api", routes);

@@ -15,4 +15,6 @@ module.exports = {
   nodemailer: require("nodemailer"),
   googleapis: require("googleapis"),
   responseCodes: require("http-status-codes"),
+  axios: require("axios"),
+  amqplib: require("amqplib"),
 };
