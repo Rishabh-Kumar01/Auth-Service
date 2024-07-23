@@ -90,6 +90,7 @@ module.exports = {
     try {
       const token = req.headers["x-access-token"];
       const response = await userService.isAuthenticated(token);
+  
       return res.status(StatusCodes.OK).json({
         message: "User Authenticated Successfully",
         success: true,

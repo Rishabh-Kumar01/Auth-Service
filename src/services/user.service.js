@@ -174,6 +174,7 @@ class UserService {
         console.log("User Not Found");
         throw { message: "User Not Found" };
       }
+      console.log("User Found", user);
       return user;
     } catch (error) {
       console.log("Something Went Wrong: User Service: Is Authenticated");
