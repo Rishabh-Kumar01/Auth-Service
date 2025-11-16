@@ -2,6 +2,16 @@ const { dotenv, bcrypt } = require("../utils/imports.util");
 
 dotenv.config();
 
+// Parse COOKIE_MAX_AGE properly to handle string env vars
+const parseCookieMaxAge = () => {
+  const envValue = process.env.COOKIE_MAX_AGE;
+  if (envValue) {
+    const parsed = Number(envValue);
+    return Number.isNaN(parsed) ? 7 * 24 * 60 * 60 * 1000 : parsed;
+  }
+  return 7 * 24 * 60 * 60 * 1000; // Default: 7 days
+};
+
 module.exports = {
   PORT: process.env.PORT,
   SALT: bcrypt.genSaltSync(10),
@@ -25,5 +35,5 @@ module.exports = {
   COGNITO_CLIENT_SECRET: process.env.COGNITO_CLIENT_SECRET,
   // Cookie Configuration
   COOKIE_SECRET: process.env.COOKIE_SECRET || 'default-secret-change-in-production',
-  COOKIE_MAX_AGE: process.env.COOKIE_MAX_AGE || 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+  COOKIE_MAX_AGE: parseCookieMaxAge(),
 };

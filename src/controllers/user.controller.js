@@ -1,7 +1,27 @@
 const { UserService } = require("../services/index.service");
 const { StatusCodes } = require("../utils/imports.util").responseCodes;
 const { serverConfig } = require("../config/index.config");
+const { sanitizeErrorForLogging } = require("../utils/apiError.util");
 const userService = new UserService();
+
+// Helper function to get base cookie options
+function getCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+  };
+}
+
+// Helper function to clear authentication cookies
+function clearAuthCookies(res) {
+  const cookieOptions = getCookieOptions();
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+  res.clearCookie("idToken", cookieOptions);
+  res.clearCookie("userEmail", { ...cookieOptions, signed: true });
+}
 
 /**
  * User Controller
@@ -321,25 +341,40 @@ module.exports = {
         });
       }
 
-      // Set cookies for tokens
-      const cookieOptions = {
-        httpOnly: true, // Prevents JavaScript access
-        secure: process.env.NODE_ENV === "production", // HTTPS only in production
-        sameSite: "strict", // CSRF protection
-        maxAge: serverConfig.COOKIE_MAX_AGE,
-      };
+      // Get base cookie options
+      const cookieOptions = getCookieOptions();
 
-      res.cookie("accessToken", result.accessToken, cookieOptions);
+      // Calculate access token expiry based on Cognito's expiresIn (in seconds)
+      // Use minimum of token lifetime and configured max age
+      const accessTokenMaxAge = Math.min(
+        (result.expiresIn || 3600) * 1000,
+        serverConfig.COOKIE_MAX_AGE
+      );
+
+      // Set access token cookie with proper expiry
+      res.cookie("accessToken", result.accessToken, {
+        ...cookieOptions,
+        maxAge: accessTokenMaxAge,
+      });
+
+      // Refresh token - use longer expiry (30 days)
       res.cookie("refreshToken", result.refreshToken, {
         ...cookieOptions,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days for refresh token
+        maxAge: 30 * 24 * 60 * 60 * 1000,
       });
-      res.cookie("idToken", result.idToken, cookieOptions);
 
-      // Store email in cookie for refresh token flow
+      // ID token - same expiry as access token
+      res.cookie("idToken", result.idToken, {
+        ...cookieOptions,
+        maxAge: accessTokenMaxAge,
+      });
+
+      // Store email in SIGNED, httpOnly cookie for refresh token flow
+      // This prevents XSS and ensures integrity
       res.cookie("userEmail", req.body.email, {
         ...cookieOptions,
-        httpOnly: false, // Allow client to read email
+        signed: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // Same as refresh token
       });
 
       return res.status(StatusCodes.OK).json({
@@ -347,19 +382,20 @@ module.exports = {
         success: true,
         data: {
           user: result.user,
+          email: req.body.email, // Return email in response body for client display
           expiresIn: result.expiresIn,
         },
         error: {},
       });
     } catch (error) {
-      console.log("Something Went Wrong: User Controller: Cognito SignIn", error);
+      console.error("Cognito SignIn Error:", sanitizeErrorForLogging(error));
       return res
         .status(error.statusCode || StatusCodes.UNAUTHORIZED)
         .json({
           message: error.message || "Authentication failed",
           success: false,
           data: {},
-          error: error.explanation || error,
+          error: error.explanation || {},
         });
     }
   },
@@ -371,7 +407,7 @@ module.exports = {
   async cognitoRefreshToken(req, res) {
     try {
       const refreshToken = req.cookies.refreshToken;
-      const userEmail = req.cookies.userEmail;
+      const userEmail = req.signedCookies.userEmail; // Read from signed cookies
 
       if (!refreshToken || !userEmail) {
         return res.status(StatusCodes.UNAUTHORIZED).json({
@@ -384,16 +420,25 @@ module.exports = {
 
       const result = await userService.cognitoRefreshToken(refreshToken, userEmail);
 
-      // Update access token and ID token in cookies
-      const cookieOptions = {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: serverConfig.COOKIE_MAX_AGE,
-      };
+      // Get base cookie options
+      const cookieOptions = getCookieOptions();
 
-      res.cookie("accessToken", result.accessToken, cookieOptions);
-      res.cookie("idToken", result.idToken, cookieOptions);
+      // Calculate access token expiry based on Cognito's expiresIn
+      const accessTokenMaxAge = Math.min(
+        (result.expiresIn || 3600) * 1000,
+        serverConfig.COOKIE_MAX_AGE
+      );
+
+      // Update access token and ID token in cookies
+      res.cookie("accessToken", result.accessToken, {
+        ...cookieOptions,
+        maxAge: accessTokenMaxAge,
+      });
+
+      res.cookie("idToken", result.idToken, {
+        ...cookieOptions,
+        maxAge: accessTokenMaxAge,
+      });
 
       return res.status(StatusCodes.OK).json({
         message: "Token refreshed successfully",
@@ -404,13 +449,10 @@ module.exports = {
         error: {},
       });
     } catch (error) {
-      console.log("Something Went Wrong: User Controller: Cognito Refresh Token", error);
+      console.error("Cognito Refresh Token Error:", sanitizeErrorForLogging(error));
 
-      // Clear cookies on error
-      res.clearCookie("accessToken");
-      res.clearCookie("refreshToken");
-      res.clearCookie("idToken");
-      res.clearCookie("userEmail");
+      // Clear all auth cookies on error with proper options
+      clearAuthCookies(res);
 
       return res
         .status(error.statusCode || StatusCodes.UNAUTHORIZED)
@@ -418,7 +460,7 @@ module.exports = {
           message: error.message || "Token refresh failed",
           success: false,
           data: {},
-          error: error.explanation || error,
+          error: error.explanation || {},
         });
     }
   },
@@ -435,11 +477,8 @@ module.exports = {
         await userService.cognitoSignOut(accessToken);
       }
 
-      // Clear all auth cookies
-      res.clearCookie("accessToken");
-      res.clearCookie("refreshToken");
-      res.clearCookie("idToken");
-      res.clearCookie("userEmail");
+      // Clear all auth cookies with proper options
+      clearAuthCookies(res);
 
       return res.status(StatusCodes.OK).json({
         message: "User signed out successfully",
@@ -448,20 +487,20 @@ module.exports = {
         error: {},
       });
     } catch (error) {
-      console.log("Something Went Wrong: User Controller: Cognito SignOut", error);
+      console.error("Cognito SignOut Error:", sanitizeErrorForLogging(error));
 
-      // Clear cookies even on error
-      res.clearCookie("accessToken");
-      res.clearCookie("refreshToken");
-      res.clearCookie("idToken");
-      res.clearCookie("userEmail");
+      // Clear cookies even on error with proper options
+      clearAuthCookies(res);
 
-      return res.status(StatusCodes.OK).json({
-        message: "User signed out (with errors)",
-        success: true,
-        data: {},
-        error: error.explanation || error,
-      });
+      // Return error status instead of success
+      return res
+        .status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          message: error.message || "Sign out failed",
+          success: false,
+          data: {},
+          error: error.explanation || {},
+        });
     }
   },
 

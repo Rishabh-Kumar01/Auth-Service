@@ -17,6 +17,7 @@ const {
   COGNITO_CLIENT_ID,
   COGNITO_CLIENT_SECRET,
 } = require("../config/serverConfig");
+const { ApiError, sanitizeErrorForLogging } = require("../utils/apiError.util");
 
 // Initialize Cognito client
 const cognitoClient = new CognitoIdentityProviderClient({
@@ -34,6 +35,15 @@ function generateSecretHash(username) {
     .digest("base64");
 }
 
+// Helper to conditionally add SecretHash to params
+function addSecretHashIfAvailable(params, username) {
+  const secretHash = generateSecretHash(username);
+  if (secretHash) {
+    params.SecretHash = secretHash;
+  }
+  return params;
+}
+
 class CognitoService {
   /**
    * Sign up a new user in Cognito
@@ -44,11 +54,10 @@ class CognitoService {
    */
   async signUp(email, password, attributes = {}) {
     try {
-      const params = {
+      let params = {
         ClientId: COGNITO_CLIENT_ID,
         Username: email,
         Password: password,
-        SecretHash: generateSecretHash(email),
         UserAttributes: [
           {
             Name: "email",
@@ -61,22 +70,25 @@ class CognitoService {
         ],
       };
 
+      // Conditionally add SecretHash only if client secret is configured
+      params = addSecretHashIfAvailable(params, email);
+
       const command = new SignUpCommand(params);
       const response = await cognitoClient.send(command);
 
       return {
         success: true,
         userSub: response.UserSub,
-        userConfirmed: response.UserConfirmed,
+        userConfirmed: response.UserConfirmed || false,
         codeDeliveryDetails: response.CodeDeliveryDetails,
       };
     } catch (error) {
-      console.error("Cognito SignUp Error:", error);
-      throw {
-        success: false,
-        error: error.name,
-        message: error.message,
-      };
+      console.error("Cognito SignUp Error:", sanitizeErrorForLogging(error));
+      throw new ApiError(
+        error.message || "Sign up failed",
+        400,
+        { errorType: error.name }
+      );
     }
   }
 
@@ -88,12 +100,14 @@ class CognitoService {
    */
   async confirmSignUp(email, confirmationCode) {
     try {
-      const params = {
+      let params = {
         ClientId: COGNITO_CLIENT_ID,
         Username: email,
         ConfirmationCode: confirmationCode,
-        SecretHash: generateSecretHash(email),
       };
+
+      // Conditionally add SecretHash
+      params = addSecretHashIfAvailable(params, email);
 
       const command = new ConfirmSignUpCommand(params);
       await cognitoClient.send(command);
@@ -103,12 +117,12 @@ class CognitoService {
         message: "User confirmed successfully",
       };
     } catch (error) {
-      console.error("Cognito ConfirmSignUp Error:", error);
-      throw {
-        success: false,
-        error: error.name,
-        message: error.message,
-      };
+      console.error("Cognito ConfirmSignUp Error:", sanitizeErrorForLogging(error));
+      throw new ApiError(
+        error.message || "Confirmation failed",
+        400,
+        { errorType: error.name }
+      );
     }
   }
 
@@ -120,26 +134,39 @@ class CognitoService {
    */
   async signIn(email, password) {
     try {
+      const authParameters = {
+        USERNAME: email,
+        PASSWORD: password,
+      };
+
+      // Conditionally add SECRET_HASH to AuthParameters
+      const secretHash = generateSecretHash(email);
+      if (secretHash) {
+        authParameters.SECRET_HASH = secretHash;
+      }
+
       const params = {
         AuthFlow: "USER_PASSWORD_AUTH",
         ClientId: COGNITO_CLIENT_ID,
-        AuthParameters: {
-          USERNAME: email,
-          PASSWORD: password,
-          SECRET_HASH: generateSecretHash(email),
-        },
+        AuthParameters: authParameters,
       };
 
       const command = new InitiateAuthCommand(params);
       const response = await cognitoClient.send(command);
 
+      // Handle challenge flows (MFA, password change, etc.)
       if (response.ChallengeName) {
         return {
           success: true,
           challengeName: response.ChallengeName,
           session: response.Session,
-          challengeParameters: response.ChallengeParameters,
+          challengeParameters: response.ChallengeParameters || {},
         };
+      }
+
+      // Guard against missing AuthenticationResult
+      if (!response.AuthenticationResult) {
+        throw new ApiError("Authentication failed - no tokens received", 401);
       }
 
       return {
@@ -147,15 +174,18 @@ class CognitoService {
         accessToken: response.AuthenticationResult.AccessToken,
         refreshToken: response.AuthenticationResult.RefreshToken,
         idToken: response.AuthenticationResult.IdToken,
-        expiresIn: response.AuthenticationResult.ExpiresIn,
+        expiresIn: response.AuthenticationResult.ExpiresIn || 3600,
       };
     } catch (error) {
-      console.error("Cognito SignIn Error:", error);
-      throw {
-        success: false,
-        error: error.name,
-        message: error.message,
-      };
+      console.error("Cognito SignIn Error:", sanitizeErrorForLogging(error));
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        error.message || "Authentication failed",
+        401,
+        { errorType: error.name }
+      );
     }
   }
 
@@ -167,31 +197,46 @@ class CognitoService {
    */
   async refreshToken(refreshToken, email) {
     try {
+      const authParameters = {
+        REFRESH_TOKEN: refreshToken,
+      };
+
+      // Conditionally add SECRET_HASH
+      const secretHash = generateSecretHash(email);
+      if (secretHash) {
+        authParameters.SECRET_HASH = secretHash;
+      }
+
       const params = {
         AuthFlow: "REFRESH_TOKEN_AUTH",
         ClientId: COGNITO_CLIENT_ID,
-        AuthParameters: {
-          REFRESH_TOKEN: refreshToken,
-          SECRET_HASH: generateSecretHash(email),
-        },
+        AuthParameters: authParameters,
       };
 
       const command = new InitiateAuthCommand(params);
       const response = await cognitoClient.send(command);
 
+      // Guard against missing AuthenticationResult
+      if (!response.AuthenticationResult) {
+        throw new ApiError("Token refresh failed - no tokens received", 401);
+      }
+
       return {
         success: true,
         accessToken: response.AuthenticationResult.AccessToken,
         idToken: response.AuthenticationResult.IdToken,
-        expiresIn: response.AuthenticationResult.ExpiresIn,
+        expiresIn: response.AuthenticationResult.ExpiresIn || 3600,
       };
     } catch (error) {
-      console.error("Cognito RefreshToken Error:", error);
-      throw {
-        success: false,
-        error: error.name,
-        message: error.message,
-      };
+      console.error("Cognito RefreshToken Error:", sanitizeErrorForLogging(error));
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        error.message || "Token refresh failed",
+        401,
+        { errorType: error.name }
+      );
     }
   }
 
@@ -214,12 +259,12 @@ class CognitoService {
         message: "User signed out successfully",
       };
     } catch (error) {
-      console.error("Cognito SignOut Error:", error);
-      throw {
-        success: false,
-        error: error.name,
-        message: error.message,
-      };
+      console.error("Cognito SignOut Error:", sanitizeErrorForLogging(error));
+      throw new ApiError(
+        error.message || "Sign out failed",
+        400,
+        { errorType: error.name }
+      );
     }
   }
 
@@ -237,21 +282,24 @@ class CognitoService {
       const command = new GetUserCommand(params);
       const response = await cognitoClient.send(command);
 
+      // Guard against missing UserAttributes
+      const userAttributes = (response.UserAttributes || []).reduce((acc, attr) => {
+        acc[attr.Name] = attr.Value;
+        return acc;
+      }, {});
+
       return {
         success: true,
         username: response.Username,
-        userAttributes: response.UserAttributes.reduce((acc, attr) => {
-          acc[attr.Name] = attr.Value;
-          return acc;
-        }, {}),
+        userAttributes,
       };
     } catch (error) {
-      console.error("Cognito GetUser Error:", error);
-      throw {
-        success: false,
-        error: error.name,
-        message: error.message,
-      };
+      console.error("Cognito GetUser Error:", sanitizeErrorForLogging(error));
+      throw new ApiError(
+        error.message || "Failed to get user details",
+        401,
+        { errorType: error.name }
+      );
     }
   }
 
@@ -262,11 +310,13 @@ class CognitoService {
    */
   async forgotPassword(email) {
     try {
-      const params = {
+      let params = {
         ClientId: COGNITO_CLIENT_ID,
         Username: email,
-        SecretHash: generateSecretHash(email),
       };
+
+      // Conditionally add SecretHash
+      params = addSecretHashIfAvailable(params, email);
 
       const command = new ForgotPasswordCommand(params);
       const response = await cognitoClient.send(command);
@@ -276,12 +326,12 @@ class CognitoService {
         codeDeliveryDetails: response.CodeDeliveryDetails,
       };
     } catch (error) {
-      console.error("Cognito ForgotPassword Error:", error);
-      throw {
-        success: false,
-        error: error.name,
-        message: error.message,
-      };
+      console.error("Cognito ForgotPassword Error:", sanitizeErrorForLogging(error));
+      throw new ApiError(
+        error.message || "Failed to initiate password reset",
+        400,
+        { errorType: error.name }
+      );
     }
   }
 
@@ -294,13 +344,15 @@ class CognitoService {
    */
   async confirmForgotPassword(email, confirmationCode, newPassword) {
     try {
-      const params = {
+      let params = {
         ClientId: COGNITO_CLIENT_ID,
         Username: email,
         ConfirmationCode: confirmationCode,
         Password: newPassword,
-        SecretHash: generateSecretHash(email),
       };
+
+      // Conditionally add SecretHash
+      params = addSecretHashIfAvailable(params, email);
 
       const command = new ConfirmForgotPasswordCommand(params);
       await cognitoClient.send(command);
@@ -310,12 +362,12 @@ class CognitoService {
         message: "Password reset successfully",
       };
     } catch (error) {
-      console.error("Cognito ConfirmForgotPassword Error:", error);
-      throw {
-        success: false,
-        error: error.name,
-        message: error.message,
-      };
+      console.error("Cognito ConfirmForgotPassword Error:", sanitizeErrorForLogging(error));
+      throw new ApiError(
+        error.message || "Failed to reset password",
+        400,
+        { errorType: error.name }
+      );
     }
   }
 }

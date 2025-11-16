@@ -7,12 +7,31 @@ const app = utils.imports.express();
 
 // Server & Database Connection
 const setupAndStartServer = async () => {
+  // Validate required environment variables for Cognito (if using Cognito endpoints)
+  if (process.env.NODE_ENV === 'production') {
+    const requiredEnvVars = ['CORS_ORIGIN', 'COOKIE_SECRET'];
+    const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+    if (missingVars.length > 0) {
+      throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+    }
+
+    // Validate CORS_ORIGIN is not wildcard when using credentials
+    if (process.env.CORS_ORIGIN === '*') {
+      throw new Error('CORS_ORIGIN cannot be "*" in production when using credentials');
+    }
+  }
+
   // Middlewares
   app.use(utils.imports.morgan("dev"));
+
+  // CORS configuration - never use wildcard with credentials
+  const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
   app.use(utils.imports.cors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: corsOrigin,
     credentials: true, // Allow cookies to be sent
   }));
+
   app.use(utils.imports.helmet());
   app.use(utils.imports.compression());
   app.use(utils.imports.bodyParser.json());

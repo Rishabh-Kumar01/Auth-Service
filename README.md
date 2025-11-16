@@ -136,9 +136,18 @@ COGNITO_CLIENT_SECRET=your-app-client-secret
 
 # Cookie Configuration
 COOKIE_SECRET=your-secure-random-string-for-signing-cookies
-COOKIE_MAX_AGE=604800000
-CORS_ORIGIN=http://localhost:3000
+COOKIE_MAX_AGE=604800000  # Max cookie age in milliseconds (default: 7 days)
+
+# CORS Configuration - CRITICAL for production
+CORS_ORIGIN=http://localhost:3000  # MUST be your actual frontend URL
+NODE_ENV=production  # Set to 'production' in production environment
 ```
+
+**IMPORTANT Security Notes:**
+- **CORS_ORIGIN**: MUST be set to your actual frontend URL in production (e.g., `https://yourdomain.com`). Using `*` is forbidden when credentials are enabled.
+- **COOKIE_SECRET**: Use a strong, random string for signing cookies. Generate with: `openssl rand -base64 32`
+- **NODE_ENV**: Set to `production` in production to enable secure cookies (HTTPS-only)
+- **COOKIE_MAX_AGE**: Maximum cookie lifetime. Actual access token cookies will expire based on Cognito's token lifetime (typically 1 hour), whichever is shorter.
 
 ### API Endpoints
 
@@ -223,19 +232,36 @@ Content-Type: application/json
 
 ### Cookie-Based Authentication
 
-The service uses HTTP-only cookies for storing tokens, which provides better security compared to storing tokens in localStorage:
+The service uses HTTP-only, signed cookies for storing tokens, which provides better security compared to storing tokens in localStorage:
 
 **Security Benefits:**
-- HTTP-only cookies cannot be accessed by JavaScript (XSS protection)
-- Secure flag ensures cookies are only sent over HTTPS in production
-- SameSite=strict prevents CSRF attacks
-- Automatic token management (no manual header setting required)
+- **HTTP-only cookies** cannot be accessed by JavaScript (XSS protection)
+- **Signed cookies** prevent tampering (using COOKIE_SECRET)
+- **Secure flag** ensures cookies are only sent over HTTPS in production
+- **SameSite=strict** prevents CSRF attacks
+- **Path-scoped cookies** with proper domain settings
+- **Automatic token management** (no manual header setting required)
 
 **Cookies Set:**
-- `accessToken`: Short-lived token for API authentication (default: 7 days)
-- `refreshToken`: Long-lived token for refreshing access tokens (30 days)
-- `idToken`: Contains user claims
+- `accessToken`: API authentication token
+  - Expires based on Cognito's token lifetime (typically 1 hour)
+  - Cookie maxAge is set to minimum of token expiry or COOKIE_MAX_AGE
+  - HTTP-only, secure, signed
+- `refreshToken`: Long-lived token for refreshing access tokens
+  - Expires after 30 days
+  - HTTP-only, secure, signed
+- `idToken`: Contains user claims and identity information
+  - Same expiry as accessToken
+  - HTTP-only, secure, signed
 - `userEmail`: User's email (needed for refresh token flow)
+  - Expires after 30 days (same as refresh token)
+  - HTTP-only, secure, **signed** (prevents tampering)
+  - NOT accessible to JavaScript
+
+**Important Cookie Notes:**
+- Access token cookies expire when the Cognito token expires (usually 1 hour), NOT after 7 days
+- The COOKIE_MAX_AGE config sets the maximum lifetime, but actual token expiry takes precedence
+- The `userEmail` cookie is signed and HTTP-only for security - clients receive email in JSON response body instead
 
 ### Testing the Integration
 
