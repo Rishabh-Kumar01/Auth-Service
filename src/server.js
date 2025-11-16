@@ -9,11 +9,15 @@ const app = utils.imports.express();
 const setupAndStartServer = async () => {
   // Middlewares
   app.use(utils.imports.morgan("dev"));
-  app.use(utils.imports.cors());
+  app.use(utils.imports.cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    credentials: true, // Allow cookies to be sent
+  }));
   app.use(utils.imports.helmet());
   app.use(utils.imports.compression());
   app.use(utils.imports.bodyParser.json());
   app.use(utils.imports.bodyParser.urlencoded({ extended: true }));
+  app.use(utils.imports.cookieParser(config.serverConfig.COOKIE_SECRET));
 
   // Message Queue Connection
   await utils.messageQueue.getChannel();
