@@ -2,6 +2,7 @@ const { UserRepository } = require("../repository/index.repository");
 const { jwt, bcrypt, googleapis } = require("../utils/imports.util");
 const { serverConfig, nodemailerConfig } = require("../config/index.config");
 const { messageQueue } = require("../utils/index.util");
+const cognitoService = require("./cognito.service");
 
 class UserService {
   constructor() {
@@ -235,6 +236,210 @@ class UserService {
     } catch (error) {
       console.log("Something Went Wrong: User Service: Is Admin");
       throw { error };
+    }
+  }
+
+  // ==================== AWS Cognito Methods ====================
+
+  /**
+   * Sign up user with AWS Cognito
+   * @param {object} data - User signup data
+   * @returns {Promise<object>} User signup result
+   */
+  async cognitoSignUp(data) {
+    try {
+      // Sign up in Cognito
+      const cognitoResult = await cognitoService.signUp(
+        data.email,
+        data.password,
+        {
+          name: data.name || "",
+        }
+      );
+
+      // Store user in local database with Cognito reference
+      const user = await this.userRepository.signUp({
+        ...data,
+        cognitoUserId: cognitoResult.userSub,
+        verified: cognitoResult.userConfirmed,
+      });
+
+      return {
+        success: true,
+        user,
+        cognitoResult,
+        message: "User registered. Please check your email for verification code.",
+      };
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Cognito SignUp", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Confirm user signup with verification code
+   * @param {string} email - User email
+   * @param {string} confirmationCode - Verification code
+   * @returns {Promise<object>} Confirmation result
+   */
+  async cognitoConfirmSignUp(email, confirmationCode) {
+    try {
+      const result = await cognitoService.confirmSignUp(email, confirmationCode);
+
+      // Update user verification status in database
+      const user = await this.userRepository.findByEmail(email);
+      if (user) {
+        await this.userRepository.updateStatus(user.id);
+      }
+
+      return result;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Cognito Confirm SignUp", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sign in user with AWS Cognito
+   * @param {string} email - User email
+   * @param {string} password - User password
+   * @returns {Promise<object>} Authentication tokens
+   */
+  async cognitoSignIn(email, password) {
+    try {
+      const result = await cognitoService.signIn(email, password);
+
+      // Fetch user from database
+      const user = await this.userRepository.findByEmail(email);
+
+      return {
+        ...result,
+        user: user
+          ? {
+              id: user.id,
+              email: user.email,
+              verified: user.verified,
+            }
+          : null,
+      };
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Cognito SignIn", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh access token using refresh token
+   * @param {string} refreshToken - Refresh token
+   * @param {string} email - User email
+   * @returns {Promise<object>} New tokens
+   */
+  async cognitoRefreshToken(refreshToken, email) {
+    try {
+      const result = await cognitoService.refreshToken(refreshToken, email);
+      return result;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Cognito Refresh Token", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sign out user from AWS Cognito
+   * @param {string} accessToken - User's access token
+   * @returns {Promise<object>} Sign out result
+   */
+  async cognitoSignOut(accessToken) {
+    try {
+      const result = await cognitoService.signOut(accessToken);
+      return result;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Cognito SignOut", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user details from Cognito access token
+   * @param {string} accessToken - User's access token
+   * @returns {Promise<object>} User details
+   */
+  async cognitoGetUser(accessToken) {
+    try {
+      const result = await cognitoService.getUser(accessToken);
+
+      // Also fetch user from local database
+      if (result.success && result.userAttributes.email) {
+        const user = await this.userRepository.findByEmail(result.userAttributes.email);
+        return {
+          ...result,
+          localUser: user,
+        };
+      }
+
+      return result;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Cognito Get User", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Initiate forgot password flow
+   * @param {string} email - User email
+   * @returns {Promise<object>} Forgot password result
+   */
+  async cognitoForgotPassword(email) {
+    try {
+      const result = await cognitoService.forgotPassword(email);
+      return result;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Cognito Forgot Password", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Confirm forgot password with verification code
+   * @param {string} email - User email
+   * @param {string} confirmationCode - Verification code
+   * @param {string} newPassword - New password
+   * @returns {Promise<object>} Confirmation result
+   */
+  async cognitoConfirmForgotPassword(email, confirmationCode, newPassword) {
+    try {
+      const result = await cognitoService.confirmForgotPassword(
+        email,
+        confirmationCode,
+        newPassword
+      );
+      return result;
+    } catch (error) {
+      console.log(
+        "Something Went Wrong: User Service: Cognito Confirm Forgot Password",
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Authenticate user using Cognito access token from cookies
+   * @param {string} accessToken - Access token from cookies
+   * @returns {Promise<object>} User details
+   */
+  async cognitoIsAuthenticated(accessToken) {
+    try {
+      const result = await this.cognitoGetUser(accessToken);
+
+      if (!result.success) {
+        throw { message: "Invalid or expired token" };
+      }
+
+      return result.localUser || result.userAttributes;
+    } catch (error) {
+      console.log("Something Went Wrong: User Service: Cognito Is Authenticated", error);
+      throw error;
     }
   }
 }

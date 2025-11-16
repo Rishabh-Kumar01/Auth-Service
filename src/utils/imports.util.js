@@ -15,4 +15,5 @@ module.exports = {
   responseCodes: require("http-status-codes"),
   axios: require("axios"),
   amqplib: require("amqplib"),
+  cookieParser: require("cookie-parser"),
 };

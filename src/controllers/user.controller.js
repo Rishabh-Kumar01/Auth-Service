@@ -1,6 +1,27 @@
 const { UserService } = require("../services/index.service");
 const { StatusCodes } = require("../utils/imports.util").responseCodes;
+const { serverConfig } = require("../config/index.config");
+const { sanitizeErrorForLogging } = require("../utils/apiError.util");
 const userService = new UserService();
+
+// Helper function to get base cookie options
+function getCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+  };
+}
+
+// Helper function to clear authentication cookies
+function clearAuthCookies(res) {
+  const cookieOptions = getCookieOptions();
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+  res.clearCookie("idToken", cookieOptions);
+  res.clearCookie("userEmail", { ...cookieOptions, signed: true });
+}
 
 /**
  * User Controller
@@ -228,6 +249,356 @@ module.exports = {
           success: false,
           data: {},
           error: error.explanation || {},
+        });
+    }
+  },
+
+  // ==================== AWS Cognito Endpoints ====================
+
+  /**
+   * Cognito Sign Up
+   * Register a new user with AWS Cognito
+   */
+  async cognitoSignUp(req, res) {
+    try {
+      const result = await userService.cognitoSignUp({
+        email: req.body.email,
+        password: req.body.password,
+        name: req.body.name,
+        roleId: req.body.roleId,
+      });
+
+      return res.status(StatusCodes.CREATED).json({
+        message: result.message,
+        success: true,
+        data: {
+          userId: result.user.id,
+          email: result.user.email,
+          userSub: result.cognitoResult.userSub,
+        },
+        error: {},
+      });
+    } catch (error) {
+      console.log("Something Went Wrong: User Controller: Cognito SignUp", error);
+      return res
+        .status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          message: error.message || "Something Went Wrong",
+          success: false,
+          data: {},
+          error: error.explanation || error,
+        });
+    }
+  },
+
+  /**
+   * Cognito Confirm Sign Up
+   * Verify email with confirmation code
+   */
+  async cognitoConfirmSignUp(req, res) {
+    try {
+      const result = await userService.cognitoConfirmSignUp(
+        req.body.email,
+        req.body.confirmationCode
+      );
+
+      return res.status(StatusCodes.OK).json({
+        message: result.message,
+        success: true,
+        data: result,
+        error: {},
+      });
+    } catch (error) {
+      console.log("Something Went Wrong: User Controller: Cognito Confirm SignUp", error);
+      return res
+        .status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          message: error.message || "Something Went Wrong",
+          success: false,
+          data: {},
+          error: error.explanation || error,
+        });
+    }
+  },
+
+  /**
+   * Cognito Sign In
+   * Authenticate user and set tokens in cookies
+   */
+  async cognitoSignIn(req, res) {
+    try {
+      const result = await userService.cognitoSignIn(
+        req.body.email,
+        req.body.password
+      );
+
+      if (!result.success) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          message: "Authentication failed",
+          success: false,
+          data: result,
+          error: {},
+        });
+      }
+
+      // Get base cookie options
+      const cookieOptions = getCookieOptions();
+
+      // Calculate access token expiry based on Cognito's expiresIn (in seconds)
+      // Use minimum of token lifetime and configured max age
+      const accessTokenMaxAge = Math.min(
+        (result.expiresIn || 3600) * 1000,
+        serverConfig.COOKIE_MAX_AGE
+      );
+
+      // Set access token cookie with proper expiry
+      res.cookie("accessToken", result.accessToken, {
+        ...cookieOptions,
+        maxAge: accessTokenMaxAge,
+      });
+
+      // Refresh token - use longer expiry (30 days)
+      res.cookie("refreshToken", result.refreshToken, {
+        ...cookieOptions,
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
+      // ID token - same expiry as access token
+      res.cookie("idToken", result.idToken, {
+        ...cookieOptions,
+        maxAge: accessTokenMaxAge,
+      });
+
+      // Store email in SIGNED, httpOnly cookie for refresh token flow
+      // This prevents XSS and ensures integrity
+      res.cookie("userEmail", req.body.email, {
+        ...cookieOptions,
+        signed: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // Same as refresh token
+      });
+
+      return res.status(StatusCodes.OK).json({
+        message: "User Logged In Successfully",
+        success: true,
+        data: {
+          user: result.user,
+          email: req.body.email, // Return email in response body for client display
+          expiresIn: result.expiresIn,
+        },
+        error: {},
+      });
+    } catch (error) {
+      console.error("Cognito SignIn Error:", sanitizeErrorForLogging(error));
+      return res
+        .status(error.statusCode || StatusCodes.UNAUTHORIZED)
+        .json({
+          message: error.message || "Authentication failed",
+          success: false,
+          data: {},
+          error: error.explanation || {},
+        });
+    }
+  },
+
+  /**
+   * Cognito Refresh Token
+   * Refresh access token using refresh token from cookies
+   */
+  async cognitoRefreshToken(req, res) {
+    try {
+      const refreshToken = req.cookies.refreshToken;
+      const userEmail = req.signedCookies.userEmail; // Read from signed cookies
+
+      if (!refreshToken || !userEmail) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          message: "No refresh token found",
+          success: false,
+          data: {},
+          error: {},
+        });
+      }
+
+      const result = await userService.cognitoRefreshToken(refreshToken, userEmail);
+
+      // Get base cookie options
+      const cookieOptions = getCookieOptions();
+
+      // Calculate access token expiry based on Cognito's expiresIn
+      const accessTokenMaxAge = Math.min(
+        (result.expiresIn || 3600) * 1000,
+        serverConfig.COOKIE_MAX_AGE
+      );
+
+      // Update access token and ID token in cookies
+      res.cookie("accessToken", result.accessToken, {
+        ...cookieOptions,
+        maxAge: accessTokenMaxAge,
+      });
+
+      res.cookie("idToken", result.idToken, {
+        ...cookieOptions,
+        maxAge: accessTokenMaxAge,
+      });
+
+      return res.status(StatusCodes.OK).json({
+        message: "Token refreshed successfully",
+        success: true,
+        data: {
+          expiresIn: result.expiresIn,
+        },
+        error: {},
+      });
+    } catch (error) {
+      console.error("Cognito Refresh Token Error:", sanitizeErrorForLogging(error));
+
+      // Clear all auth cookies on error with proper options
+      clearAuthCookies(res);
+
+      return res
+        .status(error.statusCode || StatusCodes.UNAUTHORIZED)
+        .json({
+          message: error.message || "Token refresh failed",
+          success: false,
+          data: {},
+          error: error.explanation || {},
+        });
+    }
+  },
+
+  /**
+   * Cognito Sign Out
+   * Sign out user and clear cookies
+   */
+  async cognitoSignOut(req, res) {
+    try {
+      const accessToken = req.cookies.accessToken;
+
+      if (accessToken) {
+        await userService.cognitoSignOut(accessToken);
+      }
+
+      // Clear all auth cookies with proper options
+      clearAuthCookies(res);
+
+      return res.status(StatusCodes.OK).json({
+        message: "User signed out successfully",
+        success: true,
+        data: {},
+        error: {},
+      });
+    } catch (error) {
+      console.error("Cognito SignOut Error:", sanitizeErrorForLogging(error));
+
+      // Clear cookies even on error with proper options
+      clearAuthCookies(res);
+
+      // Return error status instead of success
+      return res
+        .status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          message: error.message || "Sign out failed",
+          success: false,
+          data: {},
+          error: error.explanation || {},
+        });
+    }
+  },
+
+  /**
+   * Cognito Is Authenticated
+   * Check if user is authenticated using cookies
+   */
+  async cognitoIsAuthenticated(req, res) {
+    try {
+      const accessToken = req.cookies.accessToken;
+
+      if (!accessToken) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          message: "No access token found",
+          success: false,
+          data: {},
+          error: {},
+        });
+      }
+
+      const user = await userService.cognitoIsAuthenticated(accessToken);
+
+      return res.status(StatusCodes.OK).json({
+        message: "User Authenticated Successfully",
+        success: true,
+        data: user,
+        error: {},
+      });
+    } catch (error) {
+      console.log("Something Went Wrong: User Controller: Cognito Is Authenticated", error);
+      return res
+        .status(error.statusCode || StatusCodes.UNAUTHORIZED)
+        .json({
+          message: error.message || "Authentication failed",
+          success: false,
+          data: {},
+          error: error.explanation || error,
+        });
+    }
+  },
+
+  /**
+   * Cognito Forgot Password
+   * Initiate forgot password flow
+   */
+  async cognitoForgotPassword(req, res) {
+    try {
+      const result = await userService.cognitoForgotPassword(req.body.email);
+
+      return res.status(StatusCodes.OK).json({
+        message: "Password reset code sent to your email",
+        success: true,
+        data: result,
+        error: {},
+      });
+    } catch (error) {
+      console.log("Something Went Wrong: User Controller: Cognito Forgot Password", error);
+      return res
+        .status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          message: error.message || "Something Went Wrong",
+          success: false,
+          data: {},
+          error: error.explanation || error,
+        });
+    }
+  },
+
+  /**
+   * Cognito Confirm Forgot Password
+   * Confirm password reset with code
+   */
+  async cognitoConfirmForgotPassword(req, res) {
+    try {
+      const result = await userService.cognitoConfirmForgotPassword(
+        req.body.email,
+        req.body.confirmationCode,
+        req.body.newPassword
+      );
+
+      return res.status(StatusCodes.OK).json({
+        message: result.message,
+        success: true,
+        data: result,
+        error: {},
+      });
+    } catch (error) {
+      console.log(
+        "Something Went Wrong: User Controller: Cognito Confirm Forgot Password",
+        error
+      );
+      return res
+        .status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          message: error.message || "Something Went Wrong",
+          success: false,
+          data: {},
+          error: error.explanation || error,
         });
     }
   },

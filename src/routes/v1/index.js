@@ -87,4 +87,73 @@ router.get(
   UserController.isAdmin
 );
 
+// ==================== AWS Cognito Routes ====================
+
+/**
+ * Request Method - POST
+ * Route - api/v1/cognito/signup
+ * Summary : Register a new user with AWS Cognito
+ */
+router.post(
+  "/cognito/signup",
+  AuthRequestValidator.validateUserAuth,
+  UserController.cognitoSignUp
+);
+
+/**
+ * Request Method - POST
+ * Route - api/v1/cognito/confirm-signup
+ * Summary : Confirm user signup with verification code
+ */
+router.post("/cognito/confirm-signup", UserController.cognitoConfirmSignUp);
+
+/**
+ * Request Method - POST
+ * Route - api/v1/cognito/login
+ * Summary : Login with AWS Cognito and set tokens in cookies
+ */
+router.post(
+  "/cognito/login",
+  AuthRequestValidator.validateUserLogin,
+  UserController.cognitoSignIn
+);
+
+/**
+ * Request Method - POST
+ * Route - api/v1/cognito/refresh-token
+ * Summary : Refresh access token using refresh token from cookies
+ */
+router.post("/cognito/refresh-token", UserController.cognitoRefreshToken);
+
+/**
+ * Request Method - POST
+ * Route - api/v1/cognito/logout
+ * Summary : Sign out user and clear cookies
+ */
+router.post("/cognito/logout", UserController.cognitoSignOut);
+
+/**
+ * Request Method - GET
+ * Route - api/v1/cognito/isAuthenticated
+ * Summary : Check if user is authenticated using Cognito tokens from cookies
+ */
+router.get("/cognito/isAuthenticated", UserController.cognitoIsAuthenticated);
+
+/**
+ * Request Method - POST
+ * Route - api/v1/cognito/forgot-password
+ * Summary : Initiate forgot password flow
+ */
+router.post("/cognito/forgot-password", UserController.cognitoForgotPassword);
+
+/**
+ * Request Method - POST
+ * Route - api/v1/cognito/confirm-forgot-password
+ * Summary : Confirm password reset with verification code
+ */
+router.post(
+  "/cognito/confirm-forgot-password",
+  UserController.cognitoConfirmForgotPassword
+);
+
 module.exports = router;
